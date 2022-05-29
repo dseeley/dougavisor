@@ -1,0 +1,9 @@
+*.retry
+.vscode*
+.idea*
+.DS_Store
+venv
+*.pyc
+id_rsa*
+test*.yml
+*.iso

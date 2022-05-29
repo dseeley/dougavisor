@@ -1,0 +1,52 @@
+---
+
+- name: dougavisor/isobuild | Install xorriso
+  become: yes
+  apt:
+    update_cache: yes
+    name: [ "xorriso" ]
+
+- name: dougavisor/isobuild | create temporary directory
+  file:
+    state: directory
+    path: "isoTEMP_{{targethost}}_{{os_id}}"
+  register: r__file_tempdir
+
+#- name: dougavisor/isobuild | Extract a single file from the ISO, get its MD5, and write this only to /md5sum.txt.  Not really necessary.
+#  block:
+#    - name: dougavisor/isobuild | xorriso - extract .disk/info so we can get md5; chmod the .disk directory so we can run this again (it is copied read-only, the mode as-is in the iso)
+#      command: "{{item}}"
+#      with_items:
+#        - "xorriso -osirrox on -indev ubuntu-22.04-live-server-amd64.iso -extract_l . {{ r__file_tempdir.path }} .disk/info"
+#        - "chmod -R u+w {{ r__file_tempdir.path }}/.disk/"
+#
+#    - name: dougavisor/isobuild | write md5 of a single file to md5sum.txt
+#      shell: "/usr/bin/md5sum ./.disk/info > md5sum.txt"
+#      args:
+#        chdir: "{{ r__file_tempdir.path }}"
+
+- name: dougavisor/isobuild | ensure md5sum.txt file exists and is empty (as we're about to change "boot/grub/grub.cfg")
+  copy:
+    content: ""
+    dest: "{{ r__file_tempdir.path }}/md5sum.txt"
+    force: yes
+
+- block:
+    - name: dougavisor/isobuild | create needed iso dirs
+      file: path={{ r__file_tempdir.path }}/{{item | dirname }} state=directory mode=0755
+      with_items: "{{filepaths_to_copy}}"
+
+    - name: dougavisor/isobuild | copy nocloud and grub templates into iso dirs (strip '.j2' from filename)
+      template:
+        src: "{{item}}"
+        dest: "{{r__file_tempdir.path}}/{{item | regex_replace('^(.*?)\\.j2', '\\1')}}"
+      with_items: "{{filepaths_to_copy}}"
+  vars:
+    filepaths_to_copy:
+      - "boot/grub/grub.cfg.j2"
+      - "nocloud/user-data.j2"
+      - "nocloud/meta-data.j2"
+
+
+- name: dougavisor/isobuild | xorriso - create/update the ISO
+  command: "xorriso -indev ubuntu-22.04-live-server-amd64.iso -outdev {{targethost}}_{{os_id}}_autoinstall.iso -volid {{targethost}}_{{os_id}} -blank all --pathspecs on -add nocloud/meta-data={{ r__file_tempdir.path }}/nocloud/meta-data  nocloud/user-data={{ r__file_tempdir.path }}/nocloud/user-data md5sum.txt={{ r__file_tempdir.path }}/md5sum.txt boot/grub/grub.cfg={{r__file_tempdir.path}}/boot/grub/grub.cfg -- -boot_image 'any' 'patch'"

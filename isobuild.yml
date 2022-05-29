@@ -1,0 +1,25 @@
+---
+
+- name: isobuild | preflight check
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - assert: { that: "ansible_version.full is version_compare('2.9', '>=')", msg: "Ansible >=2.9 required." }
+    - assert: { that: "os_id is defined and os_id != ''", msg: "Please define os_id" }
+    - assert: { that: "targethost is defined and targethost != ''", msg: "Please define targethost" }
+
+- name: isobuild | Build ISO
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: isobuild | include the global "group_vars/all.yml" vars
+      include_vars: "group_vars/all.yml"
+
+    - name: isobuild | merge in any targethost-specific vars (if defined)
+      include_vars:
+        file: "{{ lookup('first_found', params) }}"
+        hash_behaviour: merge
+      vars: { params: { files: ["group_vars/{{targethost}}.yml"], skip: true } }
+
+    - include_role:
+        name: "isobuild/{{ os_id }}"

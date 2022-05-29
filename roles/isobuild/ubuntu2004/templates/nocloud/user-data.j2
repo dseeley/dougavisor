@@ -1,0 +1,49 @@
+#cloud-config
+autoinstall:
+  version: 1
+  refresh-installer: { update: yes }
+  apt:
+    geoip: true
+  keyboard: {layout: gb, toggle: 'null', variant: ''}
+  locale: en_GB.UTF-8
+  ssh:
+    install-server: true
+  network:
+    {{ cloudinit_netplan | combine({'version': 2}) }}
+  storage:
+    {{ autoinstall_storage }}
+
+  ## Note: This 'user-data' section runs *after the reboot* that happens at the end of the main 'late-commands' section.
+  ##       You must not remove cloud-init until here, otherwise this section won't run at all (as it is *part* of cloud-init).
+  ##       snapd also should be removed in here, because it cannot be removed entirely in late-commands, due to that being a chroot environment.
+  user-data:
+    hostname: 'dougavisor'
+    disable_root: false
+    system_info:
+      default_user: ~
+    ssh_pwauth: true
+    users: {{ linuxusers | json_query('[].merge({name: name}, (cloudinit_userdata||``))') }}
+    runcmd:
+      - /usr/bin/apt-get --purge -y remove snapd
+      - /usr/bin/rm -rf ~/snap /snap /var/snap /var/lib/snapd
+      - /usr/bin/apt-get --purge -y remove cloud-init cloud-guest-utils
+      - /bin/rm -f /etc/cloud
+      - /usr/sbin/reboot
+
+  late-commands:
+    ## Force the original eth[n] naming convention, so we get predictable interface name for subsequent VM provisioning tooling.
+    - curtin in-target -- sed -ri 's/^(GRUB_CMDLINE_LINUX\s*=\s*)"(.*?)"$/\1"\2 net.ifnames=0 biosdevname=0"/' /etc/default/grub
+    ## Add a grub timeout, to allow us to get to boot screen if needed.
+    - curtin in-target -- sed -ri 's/^GRUB_TIMEOUT\s*=.*$/GRUB_TIMEOUT=5/' /etc/default/grub
+    - curtin in-target -- sed -ri 's/^.*GRUB_GFXMODE=.*$/GRUB_GFXMODE=1920x1080/' /etc/default/grub
+    - curtin in-target -- /usr/sbin/grub-mkconfig -o /boot/grub/grub.cfg
+    ## Remove swap file (setting swap to 0 in the 'storage' section, when using 'layout' (instead of 'config') does not currently work, hence removing swap here)
+    - curtin in-target -- swapoff -a
+    - curtin in-target -- sed -i '/^\/swap.img/d' /etc/fstab
+    - curtin in-target -- rm -f /swap.img
+    ## Package clean
+    - curtin in-target -- /usr/bin/apt-get update
+    - curtin in-target -- /usr/bin/apt-get --purge -y remove apport bcache-tools btrfs-progs byobu cloud-initramfs-copymods cloud-initramfs-dyn-netconf friendly-recovery fwupd landscape-common lxd-agent-loader ntfs-3g open-vm-tools plymouth plymouth-theme-ubuntu-text popularity-contest screen sosreport tmux ufw
+    - curtin in-target -- /usr/bin/apt-get -y dist-upgrade
+    - curtin in-target -- /usr/bin/apt-get -y --purge autoremove
+    - curtin in-target -- /usr/bin/apt-get -y autoclean

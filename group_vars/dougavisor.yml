@@ -1,0 +1,26 @@
+---
+
+cloudinit_netplan:
+  bridges:
+    br0:
+      addresses: [192.168.1.3/25]
+
+autoinstall_storage:
+  ## Boot NVME (nvme0n1) is 256060514304 bytes.  1GB for EFI partition; rest for OS.  2MB is reserved for partition boundaries
+  ## Storage NVME (nvme1n1) is 4000787030016 bytes:  4GB for /etc/libvirt; rest for /media/vdisk (virtual disks).  ~3MB is reserved for partition boundaries
+  config:
+    - {type: disk,      id: disk-nvme0n1, ptable: gpt, path: /dev/nvme0n1, wipe: superblock-recursive, preserve: false, grub_device: false, serial: 'M2_Series_NVMe_SSD_256G_21481070330918'}
+    - {type: partition, id: partition-0,  device: disk-nvme0n1, number: 1, size: 1024M, wipe: superblock, flag: boot, preserve: false, grub_device: true}
+    - {type: format,    id: format-0,     volume: partition-0, fstype: fat32, preserve: false}
+    - {type: mount,     id: mount-0,      device: format-0, path: /boot/efi}
+    - {type: partition, id: partition-1,  device: disk-nvme0n1, number: 2, size: 249008472K, wipe: superblock, flag: '', preserve: false}
+    - {type: format,    id: format-1,     volume: partition-1, fstype: ext4, preserve: false}
+    - {type: mount,     id: mount-1,      device: format-1, path: /}
+
+    - {type: disk,      id: disk-nvme1n1, ptable: gpt, path: /dev/nvme1n1, preserve: true, serial: 'Seagate_FireCuda_530_ZP4000GM30023_7VS00FLC'}
+    - {type: partition, id: partition-2,  device: disk-nvme1n1, number: 1, size: 4096M, label: 'etc_libvirt', preserve: true}
+    - {type: format,    id: format-2,     volume: partition-2, fstype: ext4, preserve: true}
+    - {type: mount,     id: mount-2,      device: format-2, path: /etc/libvirt}
+    - {type: partition, id: partition-3,  device: disk-nvme1n1, number: 2, size: 3811349M, label: 'media_vdisks', preserve: true}
+    - {type: format,    id: format-3,     volume: partition-3, fstype: ext4, preserve: true}
+    - {type: mount,     id: mount-3,      device: format-3, path: "{{libvirt.storage_pool}}"}

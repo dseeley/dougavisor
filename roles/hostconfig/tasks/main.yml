@@ -1,0 +1,133 @@
+---
+
+- name: dougavisor/hostconfig | Set ip forwarding to 'on'
+  become: yes
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- block:
+    - name: dougavisor/hostconfig | disable ubuntu motd-news
+      lineinfile:
+        dest: /etc/default/motd-news
+        state: present
+        regexp: '^ENABLED='
+        line: 'ENABLED=0'
+
+    - name: dougavisor/hostconfig | disable /etc/update-motd.d/10-help-text
+      become: yes
+      file:
+        path: "/etc/update-motd.d/10-help-text"
+        mode: "-x"
+
+
+- name: dougavisor/hostconfig | create /usr/lib/x86_64-linux-gnu/udisks2/modules directory to prevent warning message
+  become: yes
+  file:
+    path: "/usr/lib/x86_64-linux-gnu/udisks2/modules"
+    state: directory
+
+
+- name: dougavisor/hostconfig | update APT repo
+  become: yes
+  apt: { update_cache: yes }
+
+- name: dougavisor/hostconfig | deploy libvirt/qemu dependencies from APT repo
+  become: yes
+  apt:
+    name:
+      - "make"
+      - "unzip"
+      - "lsb-release"
+      - "qemu-kvm"
+      - "libvirt-daemon-system"
+      - "libvirt-clients"
+      - "ovmf"
+      - "bridge-utils"
+      - "virtinst"
+
+- block:
+    - name: dougavisor/users | add .bashrc lines
+      become: yes
+      lineinfile:
+        path: "{{ '/home/' if item.0.name != 'root' else '/' }}{{ item.0.name }}/.bashrc"
+        line: "{{item.1}}"
+        regexp: "{{item.1 | regex_escape()}}"
+      no_log: yes
+      loop: "{{ linuxusers | subelements('dot_bashrc_lines', {'skip_missing': true}) }}"
+      when: '"dot_bashrc_lines" in item.0 and item.0.dot_bashrc_lines != ""'
+
+    - name: dougavisor/users | add .bash_history lines
+      become: yes
+      lineinfile:
+        path: "{{ '/home/' if item.0.name != 'root' else '/' }}{{ item.0.name }}/.bash_history"
+        owner: "{{ item.0.name }}"
+        group: "{{ item.0.name }}"
+        mode: '0600'
+        create: yes
+        line: "{{item.1}}"
+        regexp: "{{item.1 | regex_escape()}}"
+      no_log: yes
+      loop: "{{ linuxusers | subelements('dot_bash_history_lines', {'skip_missing': true}) }}"
+      when: '"dot_bash_history_lines" in item.0 and item.0.dot_bash_history_lines != ""'
+
+
+- name: dougavisor/hostconfig | change ownership of storage_pool mountpoint
+  become: yes
+  file:
+    path: "{{ libvirt.storage_pool }}"
+    state: directory
+    mode: "775"
+    group: "{{ libvirt.username }}"
+
+- name: dougavisor/hostconfig | change ownership of /var/lib/swtpm-localca to tss (https://github.com/stefanberger/swtpm/issues/572)
+  become: yes
+  file:
+    path: "/var/lib/swtpm-localca"
+    state: directory
+    owner: "tss"
+
+- name: dougavisor/hostconfig | deploy cockpit packages from APT backports repo
+  become: yes
+  apt:
+    default_release: "{{ ansible_distribution_release }}{{'-backports'  if  ansible_distribution_major_version|int < 22 else '' }}"
+    name:
+      - "cockpit"
+      - "cockpit-machines"
+#      - "cockpit-pcp"          # Has some dependency issues (pcp, which is also quite a big thing to have running).
+
+- block:
+    - name: dougavisor/cockpit-navigator | create temporary directory
+      tempfile: { state: directory, suffix: gitBuildTMP }
+      register: tmp_build_dir
+
+    - name: dougavisor/cockpit-navigator | git clone
+      git:
+        repo: "https://github.com/45Drives/cockpit-navigator"
+        version: "HEAD"
+        dest: "{{ tmp_build_dir.path }}/GH--cockpit-navigator"
+
+    - name: dougavisor/cockpit-navigator | install
+      become: yes
+      command: "make install"
+      args:
+        chdir: "{{ tmp_build_dir.path }}/GH--cockpit-navigator"
+
+- name: dougavisor/hostconfig | remove default virbr0 network and nic
+  become: yes
+  shell: "{{item}}"
+  with_items:
+    - "virsh net-destroy default || true"
+    - "virsh net-undefine default || true"
+
+- name: dougavisor/hostconfig | define default storage
+  become: yes
+  shell: "{{item}}"
+  with_items:
+    - "virsh pool-define-as --name default --type dir --target {{libvirt.storage_pool}} || true"
+    - "virsh pool-autostart default || true"
+    - "virsh pool-start default || true"
+

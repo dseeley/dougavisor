@@ -1,0 +1,71 @@
+---
+
+libvirt:
+  storage_pool: "/media/vdisks"
+  username: "svc"
+
+
+cloudinit_netplan:
+  ethernets:
+    eth0: { optional: true }
+  bridges:
+    br0:
+      optional: true
+      addresses: [192.168.1.3/25]
+      gateway4: "192.168.1.1"
+      interfaces: [eth0]
+      nameservers: { addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["chezdj.com"] }
+    br0.25:
+      optional: true
+      link-local: []
+      interfaces: [vlan.25]
+    br0.50:
+      optional: true
+      link-local: []
+      interfaces: [vlan.50]
+  vlans:
+    vlan.25: { id: 25, link: br0 }
+    vlan.50: { id: 50, link: br0 }
+
+
+autoinstall_storage:
+  swap: { size: 0 }
+  grub: { reorder_uefi: False }
+
+
+linuxusers:
+  - name: svc
+    cloudinit_userdata:
+      lock_passwd: true
+      passwd: "*"
+      ssh_authorized_keys: ['ssh-rsa xxxxxxxxxxxxxxxx ']
+      sudo: ALL=(ALL) NOPASSWD:ALL
+      groups: libvirt, kvm
+
+  - name: root
+    cloudinit_userdata:
+      lock_passwd: false
+      hashed_passwd: '$6$rounds=4096$Ghr1h73nJZdfp2y/$dKBACfj2M2F7RYBPdj9XKwiyHHPJeWZ4oRv26CzOW.wF0z8RgqeapiMbkOlqRYUYAc/5qEh3QgQKZA/przN4h0'
+      ssh_authorized_keys: ['ssh-rsa xxxxxxxxxxxxxxxx ']
+    dot_bashrc_lines:
+      - alias cls='clear && printf "\033c\e[3J"'
+      - HISTCONTROL=ignoredups:erasedups
+    dot_bash_history_lines:
+      - apt install sysstat
+      - sar -d 1 1
+      - iostat -y 1 -x 1
+      - virsh pool-refresh --pool default
+      - virsh vol-list --pool default
+      - virsh net-list --all
+      - virsh list --all
+      - virsh vol-dumpxml --pool default --vol dougal-test-dev-sysdisks2-a0-1650901299--boot.qcow2
+      - virsh dumpxml dougal-test-dev-sysdisks2-a0-1650901299
+      - virsh edit dougal-test-dev-sysdisks2-a0-1650901299
+      - sudo apt-get update; sudo apt-get -y dist-upgrade; sudo apt-get -y autoclean; sudo apt-get -y autoremove
+      - sudo mount /dev/sda /mnt
+      - rsync --progress --delete --relative -a /etc/libvirt /mnt/
+      - rsync --progress --delete --relative -a /media/vdisks /mnt/
+      - cat /proc/swaps
+      - sudo losetup /dev/loop0 /media/vdisks/cidata.iso
+      - sudo mount /dev/loop0 /mnt
+      - sudo umount /mnt; sudo losetup -d /dev/loop0

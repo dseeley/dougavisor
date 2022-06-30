@@ -7,3 +7,4 @@ venv
 id_rsa*
 test*.yml
 *.iso
+isoTEMP*/

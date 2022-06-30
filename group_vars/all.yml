@@ -45,7 +45,9 @@ linuxusers:
   - name: root
     cloudinit_userdata:
       lock_passwd: false
-      hashed_passwd: '$6$rounds=4096$Ghr1h73nJZdfp2y/$dKBACfj2M2F7RYBPdj9XKwiyHHPJeWZ4oRv26CzOW.wF0z8RgqeapiMbkOlqRYUYAc/5qEh3QgQKZA/przN4h0'
+      hashed_passwd: !vault |
+        $ANSIBLE_VAULT;1.1;AES256
+        xxxxxxxxxxxxxxxx
       ssh_authorized_keys: ['ssh-rsa xxxxxxxxxxxxxxxx ']
     dot_bashrc_lines:
       - alias cls='clear && printf "\033c\e[3J"'

@@ -71,3 +71,4 @@ linuxusers:
       - sudo losetup /dev/loop0 /media/vdisks/cidata.iso
       - sudo mount /dev/loop0 /mnt
       - sudo umount /mnt; sudo losetup -d /dev/loop0
+      - cat /proc/1308219/cmdline | xargs -0 echo

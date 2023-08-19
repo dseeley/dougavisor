@@ -12,6 +12,8 @@ ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2204 isobuild.yml
 ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2004 isobuild.yml
 ```
 
+## Burn image to USB
+Use Rufus to burn the image to a USB stick
 
 ## hostconfig.yml
 Installs kvm/qemu/libvirt and useful tooling ([cockpit](https://cockpit-project.org/)) for managing the KVM hypervisor

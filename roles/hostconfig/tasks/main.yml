@@ -99,6 +99,13 @@
       - "cockpit-machines"
 #      - "cockpit-pcp"          # Has some dependency issues (pcp, which is also quite a big thing to have running).
 
+- name: dougavisor/hostconfig | remove root from /etc/cockpit/disallowed-users (to allow root login)
+  become: yes
+  lineinfile:
+    dest: /etc/cockpit/disallowed-users
+    state: absent
+    regexp: '^root$'
+
 - block:
     - name: dougavisor/cockpit-navigator | create temporary directory
       tempfile: { state: directory, suffix: gitBuildTMP }

@@ -53,9 +53,10 @@ linuxusers:
       - alias cls='clear && printf "\033c\e[3J"'
       - HISTCONTROL=ignoredups:erasedups
     dot_bash_history_lines:
-      - apt install sysstat
+      - apt install sysstat progress
       - sar -d 1 1
       - iostat -y 1 -x 1
+      - iostat -d -x 1
       - virsh pool-refresh --pool default
       - virsh vol-list --pool default
       - virsh net-list --all
@@ -66,7 +67,7 @@ linuxusers:
       - sudo apt-get update; sudo apt-get -y dist-upgrade; sudo apt-get -y autoclean; sudo apt-get -y autoremove
       - sudo mount /dev/sda /mnt
       - rsync --progress --delete --relative -a /etc/libvirt /mnt/
-      - rsync --progress --delete --relative -a /media/vdisks /mnt/
+      - rsync --progress --delete --relative -a --exclude='*.iso' /media/vdisks /mnt/
       - cat /proc/swaps
       - sudo losetup /dev/loop0 /media/vdisks/cidata.iso
       - sudo mount /dev/loop0 /mnt

@@ -3,7 +3,7 @@
 cloudinit_netplan:
   bridges:
     br0:
-      addresses: [192.168.1.3/25]
+      addresses: [192.168.1.3/24]
 
 autoinstall_storage:
   ## Boot NVME (nvme0n1) is 256060514304 bytes.  1GB for EFI partition; rest for OS.  2MB is reserved for partition boundaries

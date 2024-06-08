@@ -57,6 +57,7 @@ linuxusers:
       - sar -d 1 1
       - iostat -y 1 -x 1
       - iostat -d -x 1
+      - fsck.ext4 -v /dev/nvme1n1p2
       - virsh pool-refresh --pool default
       - virsh vol-list --pool default
       - virsh net-list --all
@@ -64,6 +65,9 @@ linuxusers:
       - virsh vol-dumpxml --pool default --vol dougal-test-dev-sysdisks2-a0-1650901299--boot.qcow2
       - virsh dumpxml dougal-test-dev-sysdisks2-a0-1650901299
       - virsh edit dougal-test-dev-sysdisks2-a0-1650901299
+      - virt-clone --original gold-ubuntu2404-20240602125230 --auto-clone
+      - virsh destroy k8s-dev-controller-a0-1713893755
+      - virsh undefine k8s-dev-controller-a0-1713893755 --remove-all-storage --nvram
       - sudo apt-get update; sudo apt-get -y dist-upgrade; sudo apt-get -y autoclean; sudo apt-get -y autoremove
       - sudo mount /dev/sda /mnt
       - rsync --progress --delete --relative -a /etc/libvirt /mnt/

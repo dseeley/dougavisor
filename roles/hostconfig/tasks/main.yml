@@ -1,13 +1,13 @@
 ---
 
 - name: dougavisor/hostconfig | Set ip forwarding to 'on'
-  become: yes
+  become: true
   ansible.posix.sysctl:
     name: net.ipv4.ip_forward
     value: '1'
-    sysctl_set: yes
+    sysctl_set: true
     state: present
-    reload: yes
+    reload: true
 
 - block:
     - name: dougavisor/hostconfig | disable ubuntu motd-news
@@ -18,26 +18,23 @@
         line: 'ENABLED=0'
 
     - name: dougavisor/hostconfig | disable /etc/update-motd.d/10-help-text
-      become: yes
+      become: true
       file:
         path: "/etc/update-motd.d/10-help-text"
         mode: "-x"
 
 
 - name: dougavisor/hostconfig | create /usr/lib/x86_64-linux-gnu/udisks2/modules directory to prevent warning message
-  become: yes
+  become: true
   file:
     path: "/usr/lib/x86_64-linux-gnu/udisks2/modules"
     state: directory
 
 
-- name: dougavisor/hostconfig | update APT repo
-  become: yes
-  apt: { update_cache: yes }
-
 - name: dougavisor/hostconfig | deploy libvirt/qemu dependencies from APT repo
-  become: yes
+  become: true
   apt:
+    update_cache: true
     name:
       - "make"
       - "unzip"
@@ -51,32 +48,30 @@
 
 - block:
     - name: dougavisor/users | add .bashrc lines
-      become: yes
+      become: true
       lineinfile:
         path: "{{ '/home/' if item.0.name != 'root' else '/' }}{{ item.0.name }}/.bashrc"
         line: "{{item.1}}"
         regexp: "{{item.1 | regex_escape()}}"
-      no_log: yes
       loop: "{{ linuxusers | subelements('dot_bashrc_lines', {'skip_missing': true}) }}"
       when: '"dot_bashrc_lines" in item.0 and item.0.dot_bashrc_lines != ""'
 
     - name: dougavisor/users | add .bash_history lines
-      become: yes
+      become: true
       lineinfile:
         path: "{{ '/home/' if item.0.name != 'root' else '/' }}{{ item.0.name }}/.bash_history"
         owner: "{{ item.0.name }}"
         group: "{{ item.0.name }}"
         mode: '0600'
-        create: yes
+        create: true
         line: "{{item.1}}"
         regexp: "{{item.1 | regex_escape()}}"
-      no_log: yes
       loop: "{{ linuxusers | subelements('dot_bash_history_lines', {'skip_missing': true}) }}"
       when: '"dot_bash_history_lines" in item.0 and item.0.dot_bash_history_lines != ""'
 
 
 - name: dougavisor/hostconfig | change ownership of storage_pool mountpoint
-  become: yes
+  become: true
   file:
     path: "{{ libvirt.storage_pool }}"
     state: directory
@@ -84,14 +79,14 @@
     group: "{{ libvirt.username }}"
 
 - name: dougavisor/hostconfig | change ownership of /var/lib/swtpm-localca to tss (https://github.com/stefanberger/swtpm/issues/572)
-  become: yes
+  become: true
   file:
     path: "/var/lib/swtpm-localca"
     state: directory
     owner: "tss"
 
 - name: dougavisor/hostconfig | deploy cockpit packages from APT backports repo
-  become: yes
+  become: true
   apt:
     default_release: "{{ ansible_distribution_release }}-backports"    #{{'-backports'  if  ansible_distribution_major_version|int < 22 else '' }}
     name:
@@ -118,20 +113,20 @@
         dest: "{{ tmp_build_dir.path }}/GH--cockpit-navigator"
 
     - name: dougavisor/cockpit-navigator | install
-      become: yes
+      become: true
       command: "make install"
       args:
         chdir: "{{ tmp_build_dir.path }}/GH--cockpit-navigator"
 
 - name: dougavisor/hostconfig | remove default virbr0 network and nic
-  become: yes
+  become: true
   shell: "{{item}}"
   with_items:
     - "virsh net-destroy default || true"
     - "virsh net-undefine default || true"
 
 - name: dougavisor/hostconfig | define default storage
-  become: yes
+  become: true
   shell: "{{item}}"
   with_items:
     - "virsh pool-define-as --name default --type dir --target {{libvirt.storage_pool}} || true"
@@ -139,14 +134,14 @@
     - "virsh pool-start default || true"
 
 - name: dougavisor/hostconfig | upgrade the OS (apt-get dist-upgrade)
-  become: yes
+  become: true
   apt:
-    update_cache: yes
+    update_cache: true
     upgrade: dist
-    autoremove: yes
+    autoremove: true
   register: apt_packages_update
 
 - name: dougavisor/hostconfig | reboot and wait (if any updates have happened)
-  become: yes
+  become: true
   reboot:
   when: apt_packages_update.changed

@@ -6,5 +6,5 @@ cloudinit_netplan:
       addresses: [192.168.1.32/24]
 
 autoinstall_storage:
-  ## Note: The 'storage/layout' syntax will install the OS on the biggest disk it can find.  To install to a different disk, you must use the curtin 'storage/config' syntax, and specify the serial number (which is the ID_SERIAL from 'udevadm info --query=property --name /dev/nvme0n1' with spaces replaced with underscores) of that disk explicitly.
+  ## Note: The 'storage/layout' syntax will install the OS on the biggest disk it can find.  To install to a different disk, you must use the curtin 'storage/config' syntax, and specify the serial number (which is the ID_SERIAL from 'udevadm info --query=property --name /dev/nvme0n1' with spaces replaced with underscores) of that disk explicitly.  Other info in 'lsblk -o NAME,TYPE,UUID,FSTYPE,MOUNTPOINT,MODEL,SERIAL,SIZE,HCTL -p -P'
   layout: { name: direct }

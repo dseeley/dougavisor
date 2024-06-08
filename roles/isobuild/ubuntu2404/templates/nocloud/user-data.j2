@@ -19,8 +19,6 @@ autoinstall:
   user-data:
     hostname: 'dougavisor'
     disable_root: false
-    system_info:
-      default_user: ~
     ssh_pwauth: true
     users: {{ linuxusers | json_query('[].merge({name: name}, (cloudinit_userdata||``))') }}
     runcmd:

@@ -1,9 +1,9 @@
 ---
 
 - name: dougavisor/isobuild | Install xorriso and dependencies
-  become: yes
+  become: true
   apt:
-    update_cache: yes
+    update_cache: true
     name: [ "xorriso", "p7zip-full", "isolinux" ]   # "fakeroot", "binutils"
 
 - name: dougavisor/isobuild | create temporary directory
@@ -20,7 +20,7 @@
   copy:
     content: ""
     dest: "{{ r__file_tempdir.path }}/md5sum.txt"
-    force: yes
+    force: true
 
 #- name: dougavisor/isobuild | (Optionally) Regenerate md5
 #  shell: "find '!' -name \"md5sum.txt\" '!' -path \"./isolinux/*\" -follow -type f -exec md5sum {} \\; > ./md5sum.txt"

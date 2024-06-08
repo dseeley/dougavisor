@@ -8,12 +8,12 @@ Creates a bootable ISO from the original [Live Ubuntu Server ISO](https://releas
 
 ### Invocation:
 ```shell
-ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2204 isobuild.yml
-ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2004 isobuild.yml
+ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2404 isobuild.yml
+ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2404 isobuild.yml
 ```
 
 ## Burn image to USB
-Use Rufus to burn the image to a USB stick
+Use Rufus v4.4 (v4.5 fails for some reason) to burn the image to a USB stick
 
 ## hostconfig.yml
 Installs kvm/qemu/libvirt and useful tooling ([cockpit](https://cockpit-project.org/)) for managing the KVM hypervisor
@@ -31,7 +31,7 @@ dougavisor ansible_host=192.168.1.32 ansible_user='root' ansible_ssh_private_key
 
 ### Invocation:
 ```shell
-ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2204 hostconfig.yml -i inventory
-ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2004 hostconfig.yml -i inventory
+ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2404 hostconfig.yml -i inventory
+ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2404 hostconfig.yml -i inventory
 ```
 

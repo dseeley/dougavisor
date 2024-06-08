@@ -17,7 +17,7 @@
 #    - name: dougavisor/isobuild | xorriso - extract .disk/info so we can get md5; chmod the .disk directory so we can run this again (it is copied read-only, the mode as-is in the iso)
 #      command: "{{item}}"
 #      with_items:
-#        - "xorriso -osirrox on -indev ubuntu-22.04.1-live-server-amd64.iso -extract_l . {{ r__file_tempdir.path }} .disk/info"
+#        - "xorriso -osirrox on -indev ubuntu-24.04-live-server-amd64.iso -extract_l . {{ r__file_tempdir.path }} .disk/info"
 #        - "chmod -R u+w {{ r__file_tempdir.path }}/.disk/"
 #
 #    - name: dougavisor/isobuild | write md5 of a single file to md5sum.txt
@@ -49,4 +49,4 @@
 
 
 - name: dougavisor/isobuild | xorriso - create/update the ISO
-  command: "xorriso -indev ubuntu-22.04.3-live-server-amd64.iso -outdev {{targethost}}_{{os_id}}_autoinstall.iso -volid {{targethost}}_{{os_id}} -blank all --pathspecs on -add nocloud/meta-data={{ r__file_tempdir.path }}/nocloud/meta-data  nocloud/user-data={{ r__file_tempdir.path }}/nocloud/user-data md5sum.txt={{ r__file_tempdir.path }}/md5sum.txt boot/grub/grub.cfg={{r__file_tempdir.path}}/boot/grub/grub.cfg -- -boot_image 'any' 'patch'"
+  command: "xorriso -indev ubuntu-24.04-live-server-amd64.iso -outdev {{targethost}}_{{os_id}}_autoinstall.iso -volid {{targethost}}_{{os_id}} -blank all --pathspecs on -add nocloud/meta-data={{ r__file_tempdir.path }}/nocloud/meta-data  nocloud/user-data={{ r__file_tempdir.path }}/nocloud/user-data md5sum.txt={{ r__file_tempdir.path }}/md5sum.txt boot/grub/grub.cfg={{r__file_tempdir.path}}/boot/grub/grub.cfg -- -boot_image 'any' 'patch'"

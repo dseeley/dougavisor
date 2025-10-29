@@ -1,10 +1,10 @@
 ---
 
-- name: dougavisor/isobuild | Install xorriso
+- name: dougavisor/isobuild | Install xorriso, genisoimage, isolinux
   become: true
   apt:
     update_cache: true
-    name: [ "xorriso" ]
+    name: [ "xorriso", "genisoimage", "isolinux" ]
 
 - name: dougavisor/isobuild | create temporary directory
   file:
@@ -12,18 +12,29 @@
     path: "isoTEMP_{{targethost}}_{{os_id}}"
   register: r__file_tempdir
 
-#- name: dougavisor/isobuild | Extract a single file from the ISO, get its MD5, and write this only to /md5sum.txt.  Not really necessary.
-#  block:
-#    - name: dougavisor/isobuild | xorriso - extract .disk/info so we can get md5; chmod the .disk directory so we can run this again (it is copied read-only, the mode as-is in the iso)
-#      command: "{{item}}"
-#      with_items:
-#        - "xorriso -osirrox on -indev ubuntu-24.04-live-server-amd64.iso -extract_l . {{ r__file_tempdir.path }} .disk/info"
-#        - "chmod -R u+w {{ r__file_tempdir.path }}/.disk/"
-#
-#    - name: dougavisor/isobuild | write md5 of a single file to md5sum.txt
-#      shell: "/usr/bin/md5sum ./.disk/info > md5sum.txt"
-#      args:
-#        chdir: "{{ r__file_tempdir.path }}"
+- name: dougavisor/isobuild | xorriso - extract entire original ISO into temp dir
+  command: "xorriso -osirrox on -indev {{ ubuntu_iso }} -extract / {{ r__file_tempdir.path }}"
+
+- name: "dougavisor/isobuild | set write permissions on {{r__file_tempdir.path}} (because xorriso extracts ISO files as read-only, which prevents us from modifying files inside the ISO tree)"
+  command: "chmod -R u+w {{ r__file_tempdir.path }}"
+
+- name: dougavisor/isobuild | change the autoinstall menu timeout to 5 seconds
+  ansible.builtin.lineinfile:
+    path: "{{ r__file_tempdir.path }}/boot/grub/grub.cfg"
+    regexp: '^set timeout='
+    line: 'set timeout=5'
+
+- name: dougavisor/isobuild | add autoinstall as first menu option in grub.cfg
+  ansible.builtin.blockinfile:
+    path: "{{ r__file_tempdir.path }}/boot/grub/grub.cfg"
+    prepend_newline: true
+    insertbefore: '^menuentry "Try or Install Ubuntu Server".*'
+    block: |-
+      menuentry "AUTO install dougavisor" {
+      	set gfxpayload=keep
+      	linux	/casper/vmlinuz net.ifnames=0 biosdevname=0 modprobe.blacklist=floppy ip=dhcp autoinstall ds=nocloud\;s=/cdrom/nocloud/ quiet ---
+      	initrd	/casper/initrd
+      }
 
 - name: dougavisor/isobuild | ensure md5sum.txt file exists and is empty (as we're about to change "boot/grub/grub.cfg")
   copy:
@@ -43,10 +54,19 @@
       with_items: "{{filepaths_to_copy}}"
   vars:
     filepaths_to_copy:
-      - "boot/grub/grub.cfg.j2"
       - "nocloud/user-data.j2"
       - "nocloud/meta-data.j2"
 
+#- name: dougavisor/isobuild | xorriso - create/update the ISO in-place.  NOTE - Much quicker, but images created this way are no longer writeable in rufus versions > 4.4 (https://github.com/pbatard/rufus/issues/2495).  Need to extract the entire ISO, and rewrite.
+#  command: "xorriso -indev {{ubuntu_iso}} -outdev {{targethost}}_{{os_id}}_autoinstall.iso -volid {{targethost}}_{{os_id}} -blank all --pathspecs on -add nocloud/meta-data={{ r__file_tempdir.path }}/nocloud/meta-data  nocloud/user-data={{ r__file_tempdir.path }}/nocloud/user-data md5sum.txt={{ r__file_tempdir.path }}/md5sum.txt boot/grub/grub.cfg={{r__file_tempdir.path}}/boot/grub/grub.cfg -- -boot_image 'any' 'patch'"
 
 - name: dougavisor/isobuild | xorriso - create/update the ISO
-  command: "xorriso -indev ubuntu-24.04-live-server-amd64.iso -outdev {{targethost}}_{{os_id}}_autoinstall.iso -volid {{targethost}}_{{os_id}} -blank all --pathspecs on -add nocloud/meta-data={{ r__file_tempdir.path }}/nocloud/meta-data  nocloud/user-data={{ r__file_tempdir.path }}/nocloud/user-data md5sum.txt={{ r__file_tempdir.path }}/md5sum.txt boot/grub/grub.cfg={{r__file_tempdir.path}}/boot/grub/grub.cfg -- -boot_image 'any' 'patch'"
+  command: >-
+    xorriso -as mkisofs
+      -r -V "{{targethost}}_{{os_id}}" -J -l
+      -b boot/grub/i386-pc/eltorito.img
+      -c boot.catalog
+      -no-emul-boot -boot-load-size 4 -boot-info-table
+      -eltorito-alt-boot -e EFI/boot/bootx64.efi -no-emul-boot
+      -isohybrid-mbr /usr/lib/ISOLINUX/isohdpfx.bin -isohybrid-gpt-basdat
+      -o {{targethost}}_{{os_id}}_autoinstall.iso {{ r__file_tempdir.path }}

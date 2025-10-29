@@ -3,7 +3,11 @@ autoinstall:
   version: 1
   refresh-installer: { update: true }
   apt:
-    geoip: true
+    preserve_sources_list: false
+    primary:
+      - uri: "http://www.mirrorservice.org/sites/archive.ubuntu.com/ubuntu/"
+      - uri: "http://mirrors.ukfast.co.uk/sites/archive.ubuntu.com/"
+      - uri: "http://mirror.cov.ukservers.com/ubuntu/"
   keyboard: {layout: gb, toggle: 'null', variant: ''}
   locale: en_GB.UTF-8
   ssh:
@@ -22,10 +26,51 @@ autoinstall:
     ssh_pwauth: true
     users: {{ linuxusers | json_query('[].merge({name: name}, (cloudinit_userdata||``))') }}
     runcmd:
-      - /usr/bin/apt-get --purge -y remove snapd
-      - /usr/bin/rm -rf ~/snap /snap /var/snap /var/lib/snapd
-      - /usr/bin/apt-get --purge -y remove cloud-init cloud-guest-utils
-      - /bin/rm -f /etc/cloud
+      ## Add .basch and .bash_history lines for users
+{% for user in linuxusers %}
+{% if 'dot_bashrc_lines' in user and user.dot_bashrc_lines is defined and user.dot_bashrc_lines | length > 0 %}
+{% set upd_file = '/root/.bashrc' if user.name == 'root' else '/home/' ~ user.name ~ '/.bashrc' %}
+      - touch "{{ upd_file }}" && chown "{{ user.name }}:{{ user.name }}" "{{ upd_file }}"
+{% for line in user.dot_bashrc_lines %}
+      - f="{{ upd_file }}"; l={{ line | to_json }}; grep -qxF "$l" "$f" || printf '%s\n' "$l" >> "$f"
+{% endfor %}
+{% endif %}
+{% if 'dot_bash_history_lines' in user and user.dot_bash_history_lines is defined and user.dot_bash_history_lines | length > 0 %}
+{% set upd_file = '/root/.bash_history' if user.name == 'root' else '/home/' ~ user.name ~ '/.bash_history' %}
+      - touch "{{ upd_file }}" && chown "{{ user.name }}:{{ user.name }}" "{{ upd_file }}" && chmod 600 "{{ upd_file }}"
+{% for line in user.dot_bash_history_lines %}
+      - f="{{ upd_file }}"; l={{ line | to_json }}; grep -qxF "$l" "$f" || printf '%s\n' "$l" >> "$f"
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+      ## change ownership of storage_pool mountpoint
+      - mkdir -p {{ libvirt.storage_pool }} && chown -R :{{ libvirt.username }} {{ libvirt.storage_pool }} && chmod 775 {{ libvirt.storage_pool }}
+
+      ## change ownership of /var/lib/swtpm-localca to tss (https://github.com/stefanberger/swtpm/issues/572)
+      - mkdir -p /var/lib/swtpm-localca && chown tss /var/lib/swtpm-localca
+
+      ## deploy cockpit packages from APT backports repo
+      - apt-get -y -t $(awk -F'=' '/^UBUNTU_CODENAME/ {print $2}' /etc/os-release)-backports install cockpit cockpit-machines
+
+      ## remove root from /etc/cockpit/disallowed-users (to allow root login)
+      - sed -i 's/^root/#root/' /etc/cockpit/disallowed-users || true
+
+      ## cockpit-navigator install
+      - tmp=$(mktemp -d) && git clone https://github.com/45Drives/cockpit-navigator \"$tmp/GH--cockpit-navigator\" && make -C \"$tmp/GH--cockpit-navigator\" install || true
+
+      ## remove default virbr0 network and nic
+      - virsh net-destroy default || true; virsh net-undefine default || true
+
+      ## define default storage
+      - virsh pool-define-as --name default --type dir --target {{ libvirt.storage_pool }} || true; virsh pool-autostart default || true; virsh pool-start default || true
+
+      ## Install additional packages, upgrade existing packages, remove cloud-init and snapd, and reboot
+      - /usr/bin/apt-get update
+      - /usr/bin/apt-get --purge -y remove apport bcache-tools btrfs-progs byobu cloud-initramfs-copymods cloud-initramfs-dyn-netconf friendly-recovery fwupd landscape-common lxd-agent-loader ntfs-3g open-vm-tools plymouth plymouth-theme-ubuntu-text popularity-contest screen sosreport tmux ufw snapd cloud-init cloud-guest-utils
+      - /usr/bin/apt-get -y install make unzip lsb-release qemu-kvm libvirt-daemon-system libvirt-clients ovmf bridge-utils virtinst
+      - /usr/bin/apt-get -y dist-upgrade && /usr/bin/apt-get -y --purge autoremove && /usr/bin/apt-get -y autoclean || true"
+      - /usr/bin/rm -rf ~/snap /snap /var/snap /var/lib/snapd /etc/cloud
       - /usr/sbin/reboot
 
   late-commands:
@@ -39,9 +84,17 @@ autoinstall:
     - curtin in-target -- swapoff -a
     - curtin in-target -- sed -i '/^\/swap.img/d' /etc/fstab
     - curtin in-target -- rm -f /swap.img
-    ## Package clean
-    - curtin in-target -- /usr/bin/apt-get update
-    - curtin in-target -- /usr/bin/apt-get --purge -y remove apport bcache-tools btrfs-progs byobu cloud-initramfs-copymods cloud-initramfs-dyn-netconf friendly-recovery fwupd landscape-common lxd-agent-loader ntfs-3g open-vm-tools plymouth plymouth-theme-ubuntu-text popularity-contest screen sosreport tmux ufw
-    - curtin in-target -- /usr/bin/apt-get -y dist-upgrade
-    - curtin in-target -- /usr/bin/apt-get -y --purge autoremove
-    - curtin in-target -- /usr/bin/apt-get -y autoclean
+
+    ## Set ip forwarding to 'on'
+    - curtin in-target -- sh -c "echo 'net.ipv4.ip_forward=1' > /etc/sysctl.d/99-dougavisor.conf"
+    - curtin in-target -- sysctl --system
+
+    ## disable ubuntu motd-news
+    - curtin in-target -- sh -c "sed -i 's/^ENABLED=.*/ENABLED=0/' /etc/default/motd-news || echo 'ENABLED=0' > /etc/default/motd-news"
+    - curtin in-target -- chmod -x /etc/update-motd.d/10-help-text
+
+    ## create /usr/lib/x86_64-linux-gnu/udisks2/modules directory to prevent warning message
+    - curtin in-target -- mkdir -p /usr/lib/x86_64-linux-gnu/udisks2/modules
+
+    ## reboot
+    - curtin in-target -- /usr/sbin/reboot || true

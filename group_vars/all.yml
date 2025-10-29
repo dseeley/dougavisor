@@ -4,6 +4,7 @@ libvirt:
   storage_pool: "/media/vdisks"
   username: "svc"
 
+ubuntu_iso: "ubuntu-24.04.3-live-server-amd64.iso"
 
 cloudinit_netplan:
   ethernets:
@@ -68,12 +69,14 @@ linuxusers:
       - virt-clone --original gold-ubuntu2404-20240602125230 --auto-clone
       - virsh destroy k8s-dev-controller-a0-1713893755
       - virsh undefine k8s-dev-controller-a0-1713893755 --remove-all-storage --nvram
-      - sudo apt-get update; sudo apt-get -y dist-upgrade; sudo apt-get -y autoclean; sudo apt-get -y autoremove
-      - sudo mount /dev/sda /mnt
-      - rsync --progress --delete --relative -a /etc/libvirt /mnt/
-      - rsync --progress --delete --relative -a --exclude='*.iso' /media/vdisks /mnt/
+      - qemu-img create -f qcow2 tstauto.qcow2 8G
+      - qemu-img convert -f qcow2 -O qcow2 jenkins-tools-controller-a0-1736851280--var__lib__docker.qcow2 jenkins-tools-controller-a0-1745654588--var__lib__docker.qcow2
+      - apt-get update; apt-get -y dist-upgrade; apt-get -y autoclean; apt-get -y --purge autoremove
+      - mount /dev/sdb /mnt
+      - rsync --progress --delete --relative -a --exclude='qemu/gold-*' --exclude='qemu/jenkins-*' /etc/libvirt /mnt/
+      - rsync --progress --delete --relative -a --exclude='*.iso' --exclude='gold-*' --exclude='jenkins-*' --exclude='tstauto*' /media/vdisks /mnt/
       - cat /proc/swaps
-      - sudo losetup /dev/loop0 /media/vdisks/cidata.iso
-      - sudo mount /dev/loop0 /mnt
-      - sudo umount /mnt; sudo losetup -d /dev/loop0
+      - losetup /dev/loop0 /media/vdisks/cidata.iso
+      - mount /dev/loop0 /mnt
+      - umount /mnt; losetup -d /dev/loop0
       - cat /proc/1308219/cmdline | xargs -0 echo

@@ -1,7 +1,8 @@
 # dougavisor
 
-Ansible playbook to build a bare-metal KVM hypervisor on Ubuntu Server.  Consists of two playbooks: `isobuild.yml` and `hostconfig.yml`
+Ansible playbook to build a bare-metal KVM hypervisor on Ubuntu Server.
 
+Installs kvm/qemu/libvirt and useful tooling ([cockpit](https://cockpit-project.org/)) for managing the KVM hypervisor
 
 ## isobuild.yml
 Creates a bootable ISO from the original [Live Ubuntu Server ISO](https://releases.ubuntu.com/) with custom [autoinstall](https://ubuntu.com/server/docs/install/autoinstall) & [cloud-init](https://cloudinit.readthedocs.io/en/latest/index.html) parameters (networking, users, etc) to allow a deterministic, hands-off, automatic installation.
@@ -13,25 +14,4 @@ ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2404 isobuild.yml
 ```
 
 ## Burn image to USB
-Use Rufus v4.4 (v4.5 fails for some reason) to burn the image to a USB stick
-
-## hostconfig.yml
-Installs kvm/qemu/libvirt and useful tooling ([cockpit](https://cockpit-project.org/)) for managing the KVM hypervisor
-
-## Requirements
-An inventory file must exist that contains the hypervisor within the group you are configuring.  e.g.:
-
-```
-[dougavisor]
-dougavisor ansible_host=192.168.1.3 ansible_user='root' ansible_ssh_private_key_file='~/.ssh/id_rsa'
-
-[dougavisortest]
-dougavisor ansible_host=192.168.1.32 ansible_user='root' ansible_ssh_private_key_file='~/.ssh/id_rsa'
-```
-
-### Invocation:
-```shell
-ansible-playbook -e targethost=dougavisor -e os_id=ubuntu2404 hostconfig.yml -i inventory
-ansible-playbook -e targethost=dougavisortest -e os_id=ubuntu2404 hostconfig.yml -i inventory
-```
-
+Use Rufus with default settings to burn the image to a USB stick.

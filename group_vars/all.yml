@@ -13,7 +13,7 @@ cloudinit_netplan:
     br0:
       optional: true
       addresses: [192.168.1.3/24]
-      gateway4: "192.168.1.1"
+      routes: [{to: "default", via: "192.168.1.1"}]
       interfaces: [eth0]
       nameservers: { addresses: ["192.168.1.2", "8.8.8.8", "8.8.4.4"], search: ["chezdj.com"] }
     br0.25:
@@ -69,6 +69,7 @@ linuxusers:
       - virt-clone --original gold-ubuntu2404-20240602125230 --auto-clone
       - virsh destroy k8s-dev-controller-a0-1713893755
       - virsh undefine k8s-dev-controller-a0-1713893755 --remove-all-storage --nvram
+      - for vm in $(virsh list --all | grep running | awk '{print $2}'); do virsh shutdown $vm; done
       - qemu-img create -f qcow2 tstauto.qcow2 8G
       - qemu-img convert -f qcow2 -O qcow2 jenkins-tools-controller-a0-1736851280--var__lib__docker.qcow2 jenkins-tools-controller-a0-1745654588--var__lib__docker.qcow2
       - apt-get update; apt-get -y dist-upgrade; apt-get -y autoclean; apt-get -y --purge autoremove

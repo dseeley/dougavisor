@@ -50,7 +50,7 @@ autoinstall:
       ## Install libvirt and other packages, upgrade existing packages
       ## (gettext nodejs npm make are for cockpit-files)
       - /usr/bin/apt-get update
-      - /usr/bin/apt-get -y -o Dpkg::Options::="--force-confnew" install make unzip lsb-release qemu-kvm libvirt-daemon-system libvirt-clients ovmf bridge-utils virtinst gettext nodejs npm make
+      - /usr/bin/apt-get -y -o Dpkg::Options::="--force-confnew" install make unzip lsb-release qemu-system-x86 libvirt-daemon-system libvirt-clients ovmf bridge-utils virtinst gettext nodejs npm make
       - /usr/bin/apt-get -y dist-upgrade && /usr/bin/apt-get -y --purge autoremove && /usr/bin/apt-get -y autoclean || true
 
       ## change ownership of storage_pool mountpoint

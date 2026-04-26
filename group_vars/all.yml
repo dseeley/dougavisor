@@ -4,7 +4,16 @@ libvirt:
   storage_pool: "/media/vdisks"
   username: "svc"
 
-ubuntu_iso: "ubuntu-24.04.3-live-server-amd64.iso"
+base_os:
+  ubuntu2404:
+    ubuntu_iso: "ubuntu-24.04.3-live-server-amd64.iso"
+  ubuntu2604:
+    ubuntu_iso: "ubuntu-26.04-live-server-amd64.iso"
+
+
+# If the host uses Intel I219 cards, sometimes it crashes with error "e1000e 0000:00:1f.6 eth0: Detected Hardware Unit Hang".
+# Suggestion (from https://forum.proxmox.com/threads/intel-nic-e1000e-hardware-unit-hang.106001/post-811359): disable TCP segmentation offload
+disable_tcp_segmentation_offload: true
 
 cloudinit_netplan:
   ethernets:
@@ -58,6 +67,7 @@ linuxusers:
       - sar -d 1 1
       - iostat -y 1 -x 1
       - iostat -d -x 1
+      - iotop -o -d 2
       - fsck.ext4 -v /dev/nvme1n1p2
       - virsh pool-refresh --pool default
       - virsh vol-list --pool default
@@ -69,15 +79,18 @@ linuxusers:
       - virt-clone --original gold-ubuntu2404-20240602125230 --auto-clone
       - virsh destroy k8s-dev-controller-a0-1713893755
       - virsh undefine k8s-dev-controller-a0-1713893755 --remove-all-storage --nvram
+      - virsh list --all | grep cvtest | grep running | awk '{print $2}' | xargs -r -n1 virsh destroy
+      - virsh list --all | grep -o 'cvtest[^ ]*' | sort -u | while read vm; do virsh undefine "$vm" --nvram --remove-all-storage || virsh undefine "$vm" --nvram; done
       - for vm in $(virsh list --all | grep running | awk '{print $2}'); do virsh shutdown $vm; done
-      - qemu-img create -f qcow2 tstauto.qcow2 8G
+      - qemu-img create -f qcow2 -o preallocation=falloc tstauto.qcow2 8G
       - qemu-img convert -f qcow2 -O qcow2 jenkins-tools-controller-a0-1736851280--var__lib__docker.qcow2 jenkins-tools-controller-a0-1745654588--var__lib__docker.qcow2
       - apt-get update; apt-get -y dist-upgrade; apt-get -y autoclean; apt-get -y --purge autoremove
-      - mount /dev/sdb /mnt
-      - rsync --progress --delete --relative -a --exclude='qemu/gold-*' --exclude='qemu/jenkins-*' /etc/libvirt /mnt/
-      - rsync --progress --delete --relative -a --exclude='*.iso' --exclude='gold-*' --exclude='jenkins-*' --exclude='tstauto*' /media/vdisks /mnt/
+      - mount -o noatime,nodiratime /dev/sdb /mnt
+      - rsync --progress --delete --relative -a --exclude='qemu/gold-*' --exclude='qemu/jenkins-tools-agent-*' /etc/libvirt/qemu /mnt/
+      - rsync --progress --delete --relative -a --exclude='*.iso' --exclude='gold-*' --exclude='jenkins-tools-agent-*' --exclude='esxi*--vdisks.qcow2' --exclude='tstauto*' /media/vdisks /mnt/
       - cat /proc/swaps
       - losetup /dev/loop0 /media/vdisks/cidata.iso
       - mount /dev/loop0 /mnt
       - umount /mnt; losetup -d /dev/loop0
       - cat /proc/1308219/cmdline | xargs -0 echo
+      - ethtool -r eth0
